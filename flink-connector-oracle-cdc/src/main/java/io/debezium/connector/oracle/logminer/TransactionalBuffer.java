@@ -24,11 +24,13 @@ import io.debezium.connector.oracle.OracleDatabaseSchema;
 import io.debezium.connector.oracle.OracleOffsetContext;
 import io.debezium.connector.oracle.OracleStreamingChangeEventSourceMetrics;
 import io.debezium.connector.oracle.Scn;
+import io.debezium.connector.oracle.logminer.events.EventType;
+import io.debezium.connector.oracle.logminer.parser.LogMinerDmlEntry;
 import io.debezium.connector.oracle.logminer.parser.SelectLobParser;
-import io.debezium.connector.oracle.logminer.valueholder.LogMinerDmlEntry;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
@@ -344,7 +346,8 @@ public final class TransactionalBuffer implements AutoCloseable {
             Timestamp timestamp,
             ChangeEventSource.ChangeEventSourceContext context,
             String debugMessage,
-            EventDispatcher<TableId> dispatcher) {
+            EventDispatcher<TableId> dispatcher,
+            Partition partition) {
 
         Instant start = Instant.now();
         Transaction transaction = transactions.remove(transactionId);
@@ -405,8 +408,9 @@ public final class TransactionalBuffer implements AutoCloseable {
                 dispatcher.dispatchDataChangeEvent(
                         event.getTableId(),
                         new LogMinerChangeRecordEmitter(
+                                partition,
                                 offsetContext,
-                                event.getOperation(),
+                                EventType.from(event.getOperation()),
                                 event.getEntry().getOldValues(),
                                 event.getEntry().getNewValues(),
                                 schema.tableFor(event.getTableId()),
@@ -415,9 +419,9 @@ public final class TransactionalBuffer implements AutoCloseable {
 
             lastCommittedScn = Scn.valueOf(scn.longValue());
             if (!transaction.events.isEmpty()) {
-                dispatcher.dispatchTransactionCommittedEvent(offsetContext);
+                dispatcher.dispatchTransactionCommittedEvent(partition, offsetContext);
             } else {
-                dispatcher.dispatchHeartbeatEvent(offsetContext);
+                dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
             }
 
             streamingMetrics.calculateLagMetrics(timestamp.toInstant());
@@ -457,7 +461,10 @@ public final class TransactionalBuffer implements AutoCloseable {
      * @return offset context SCN, never {@code null}
      * @throws InterruptedException thrown if dispatch of heartbeat event fails
      */
-    Scn updateOffsetContext(OracleOffsetContext offsetContext, EventDispatcher<TableId> dispatcher)
+    Scn updateOffsetContext(
+            OracleOffsetContext offsetContext,
+            EventDispatcher<TableId> dispatcher,
+            Partition partition)
             throws InterruptedException {
         if (transactions.isEmpty()) {
             if (!maxCommittedScn.isNull()) {
@@ -465,7 +472,7 @@ public final class TransactionalBuffer implements AutoCloseable {
                         "Transaction buffer is empty, updating offset SCN to '{}'",
                         maxCommittedScn);
                 offsetContext.setScn(maxCommittedScn);
-                dispatcher.dispatchHeartbeatEvent(offsetContext);
+                dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
             } else {
                 LOGGER.trace(
                         "No max committed SCN detected, offset SCN still '{}'",
@@ -480,7 +487,7 @@ public final class TransactionalBuffer implements AutoCloseable {
                 LOGGER.trace("Removing all tracked DDL operations up to SCN '{}'", minStartScn);
                 recentlyEmittedDdls.removeIf(scn -> scn.compareTo(minStartScn) < 0);
                 offsetContext.setScn(minStartScn.subtract(Scn.valueOf(1)));
-                dispatcher.dispatchHeartbeatEvent(offsetContext);
+                dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
             } else {
                 LOGGER.trace("Minimum SCN in transaction buffer is still SCN '{}'", minStartScn);
             }
@@ -728,15 +735,15 @@ public final class TransactionalBuffer implements AutoCloseable {
             final LogMinerEvent event = transaction.events.get(i);
             LOGGER.trace("Processing event {}", event);
 
-            switch (event.getOperation()) {
-                case RowMapper.SELECT_LOB_LOCATOR:
+            switch (EventType.from(event.getOperation())) {
+                case SELECT_LOB_LOCATOR:
                     if (shouldMergeSelectLobLocatorEvent(
                             transaction, i, (SelectLobLocatorEvent) event, prevEvent)) {
                         continue;
                     }
                     break;
-                case RowMapper.INSERT:
-                case RowMapper.UPDATE:
+                case INSERT:
+                case UPDATE:
                     if (shouldMergeDmlEvent(transaction, i, (DmlEvent) event, prevEvent)) {
                         continue;
                     }
@@ -828,7 +835,7 @@ public final class TransactionalBuffer implements AutoCloseable {
             return false;
         }
 
-        if (RowMapper.INSERT == prevEvent.getOperation()) {
+        if (EventType.INSERT.getValue() == prevEvent.getOperation()) {
             // Previous event is an INSERT operation.
             // Only merge the SEL_LOB_LOCATOR event if the previous INSERT is for the same table/row
             // and if the INSERT's column value is EMPTY_CLOB() or EMPTY_BLOB()
@@ -850,7 +857,7 @@ public final class TransactionalBuffer implements AutoCloseable {
                 transaction.events.remove(index);
                 return true;
             }
-        } else if (RowMapper.UPDATE == prevEvent.getOperation()) {
+        } else if (EventType.UPDATE.getValue() == prevEvent.getOperation()) {
             // Previous event is an UPDATE operation.
             // Only merge the SEL_LOB_LOCATOR event if the previous UPDATE is for the same table/row
             if (isForSameTableOrScn(event, prevEvent) && isSameTableRow(event, prevEvent)) {
@@ -863,7 +870,7 @@ public final class TransactionalBuffer implements AutoCloseable {
                 transaction.events.remove(index);
                 return true;
             }
-        } else if (RowMapper.SELECT_LOB_LOCATOR == prevEvent.getOperation()) {
+        } else if (EventType.SELECT_LOB_LOCATOR.getValue() == prevEvent.getOperation()) {
             // Previous event is a SEL_LOB_LOCATOR operation.
             // Only merge the two SEL_LOB_LOCATOR events if they're for the same table/row
             if (isForSameTableOrScn(event, prevEvent) && isSameTableRow(event, prevEvent)) {
@@ -905,12 +912,12 @@ public final class TransactionalBuffer implements AutoCloseable {
             return false;
         }
 
-        if (RowMapper.INSERT == prevEvent.getOperation()) {
+        if (EventType.INSERT.getValue() == prevEvent.getOperation()) {
             // Previous event is an INSERT operation.
             // The only valid combination here would be if the current event is an UPDATE since an
             // INSERT cannot
             // be merged with a prior INSERT with how LogMiner materializes the rows.
-            if (RowMapper.UPDATE == event.getOperation()) {
+            if (EventType.UPDATE.getValue() == event.getOperation()) {
                 if (isForSameTableOrScn(event, prevEvent) && isSameTableRow(event, prevEvent)) {
                     LOGGER.trace("\tMerging UPDATE event with previous INSERT event");
                     mergeNewColumns(event, prevEvent);
@@ -920,12 +927,12 @@ public final class TransactionalBuffer implements AutoCloseable {
                     return true;
                 }
             }
-        } else if (RowMapper.UPDATE == prevEvent.getOperation()) {
+        } else if (EventType.UPDATE.getValue() == prevEvent.getOperation()) {
             // Previous event is an UPDATE operation.
             // This will happen if there are non-CLOB and inline-CLOB fields updated in the same
             // SQL.
             // The inline-CLOB values should be merged with the previous UPDATE event.
-            if (RowMapper.UPDATE == event.getOperation()) {
+            if (EventType.UPDATE.getValue() == event.getOperation()) {
                 if (isForSameTableOrScn(event, prevEvent) && isSameTableRow(event, prevEvent)) {
                     LOGGER.trace("\tMerging UPDATE event with previous UPDATE event");
                     mergeNewColumns(event, prevEvent);
@@ -935,10 +942,10 @@ public final class TransactionalBuffer implements AutoCloseable {
                     return true;
                 }
             }
-        } else if (RowMapper.SELECT_LOB_LOCATOR == prevEvent.getOperation()) {
+        } else if (EventType.SELECT_LOB_LOCATOR.getValue() == prevEvent.getOperation()) {
             // Previous event is a SEL_LOB_LOCATOR operation.
             // SQL contained both non-inline CLOB and inline-CLOB field changes.
-            if (RowMapper.UPDATE == event.getOperation()) {
+            if (EventType.UPDATE.getValue() == event.getOperation()) {
                 if (isForSameTableOrScn(event, prevEvent) && isSameTableRow(event, prevEvent)) {
                     LOGGER.trace("\tMerging UPDATE event with previous SEL_LOB_LOCATOR event");
                     for (int i = 0; i < event.getEntry().getNewValues().length; ++i) {
@@ -1089,7 +1096,7 @@ public final class TransactionalBuffer implements AutoCloseable {
      * @param prevEvent previous/parent parent that has been processed, never {@code null}
      */
     private void mergeNewColumns(LogMinerEvent event, LogMinerEvent prevEvent) {
-        final boolean prevEventIsInsert = RowMapper.INSERT == prevEvent.getOperation();
+        final boolean prevEventIsInsert = EventType.INSERT.getValue() == prevEvent.getOperation();
 
         for (int i = 0; i < event.getEntry().getNewValues().length; ++i) {
             Object value = event.getEntry().getNewValues()[i];
