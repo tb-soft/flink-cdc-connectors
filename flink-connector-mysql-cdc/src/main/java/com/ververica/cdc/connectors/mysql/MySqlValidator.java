@@ -110,7 +110,7 @@ public class MySqlValidator implements Validator {
         } else if (versionNumbers[0] < 5) {
             isSatisfied = false;
         } else {
-            isSatisfied = versionNumbers[1] >= 6;
+            isSatisfied = versionNumbers[1] >= 5;
         }
         if (!isSatisfied) {
             throw new ValidationException(
