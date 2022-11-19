@@ -23,7 +23,7 @@ using a build automation tool (such as Maven or SBT) and SQL Client with SQL JAR
   <groupId>com.ververica</groupId>
   <artifactId>flink-connector-db2-cdc</artifactId>
   <!-- The dependency is available only for stable releases, SNAPSHOT dependency need build by yourself. -->
-  <version>2.3.0</version>
+  <version>2.3.0.jq</version>
 </dependency>
 ```
 
@@ -31,12 +31,12 @@ using a build automation tool (such as Maven or SBT) and SQL Client with SQL JAR
 
 ```Download link is available only for stable releases.```
 
-Download [flink-sql-connector-db2-cdc-2.3.0.jar](https://repo1.maven.org/maven2/com/ververica/flink-sql-connector-db2-cdc/2.3.0/flink-sql-connector-db2-cdc-2.3.0.jar) and 
+Download [flink-sql-connector-db2-cdc-2.3.0.jq.jar](https://repo1.maven.org/maven2/com/ververica/flink-sql-connector-db2-cdc/2.3.0.jq/flink-sql-connector-db2-cdc-2.3.0.jq.jar) and 
 put it under `<FLINK_HOME>/lib/`.
 
 **Note:** flink-sql-connector-db2-cdc-XXX-SNAPSHOT version is the code corresponding to the development branch. Users 
 need to download the source code and compile the corresponding jar. Users should use the released version, such as 
-[flink-sql-connector-db2-cdc-2.3.0.jar](https://mvnrepository.com/artifact/com.ververica/flink-connector-db2-cdc), 
+[flink-sql-connector-db2-cdc-2.3.0.jq.jar](https://mvnrepository.com/artifact/com.ververica/flink-connector-db2-cdc), 
 the released version will be available in the Maven central warehouse.
 
 Setup Db2 server

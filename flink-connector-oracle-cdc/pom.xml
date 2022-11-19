@@ -19,19 +19,15 @@ under the License.
     <parent>
         <artifactId>flink-cdc-connectors</artifactId>
         <groupId>com.ververica</groupId>
-        <version>2.3.0</version>
+        <version>2.3.0.jq</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <groupId>jq.com.ververica</groupId>
-    <artifactId>flink-connector-oracle-cdc-jq</artifactId>
-    <version>2.3.0</version>
-    <name>flink-connector-oracle-cdc-jq</name>
+    <artifactId>flink-connector-oracle-cdc</artifactId>
+    <name>flink-connector-oracle-cdc</name>
     <packaging>jar</packaging>
 
     <properties>
-        <flink.version>1.16.0</flink.version>
-        <debezium.version>1.6.4.Final</debezium.version>
-        <testcontainers.version>1.15.3</testcontainers.version>
+        <debezium.oracle.version>1.6.4.jq</debezium.oracle.version>
     </properties>
 
     <dependencies>
@@ -56,9 +52,9 @@ under the License.
         </dependency>
 
         <dependency>
-            <groupId>jq.io.debezium</groupId>
-            <artifactId>debezium-connector-oracle-jq</artifactId>
-            <version>${debezium.version}</version>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-connector-oracle</artifactId>
+            <version>${debezium.oracle.version}</version>
         </dependency>
 
         <!-- test dependencies on Debezium -->

@@ -27,7 +27,7 @@ under the License.
 
     <groupId>com.ververica</groupId>
     <artifactId>flink-cdc-connectors</artifactId>
-    <version>2.3.0</version>
+    <version>2.3.0.jq</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -62,16 +62,30 @@ under the License.
     </licenses>
 
     <distributionManagement>
-        <snapshotRepository>
-            <id>oss</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-        </snapshotRepository>
         <repository>
-            <id>oss</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+            <id>nexus3</id>
+            <name>releases</name>
+            <url>http://81.70.133.193:1721/repository/maven-releases/</url>
         </repository>
+        <snapshotRepository>
+            <id>nexus3</id>
+            <name>snapshots</name>
+            <url>http://81.70.133.193:1721/repository/maven-snapshots/</url>
+        </snapshotRepository>
     </distributionManagement>
-
+    <repositories>
+        <repository>
+            <id>nexus</id>
+            <name>jqnexus</name>
+            <url>http://81.70.133.193:1721/repository/maven-public/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
     <properties>
         <flink.version>1.16.0</flink.version>
         <debezium.version>1.6.4.Final</debezium.version>
