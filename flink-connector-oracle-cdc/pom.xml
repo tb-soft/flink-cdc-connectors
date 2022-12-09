@@ -27,7 +27,7 @@ under the License.
     <packaging>jar</packaging>
 
     <properties>
-        <debezium.oracle.version>1.6.4.jq</debezium.oracle.version>
+        <debezium.oracle.version>1.6.4.jq-SNAPSHOT</debezium.oracle.version>
     </properties>
 
     <dependencies>
