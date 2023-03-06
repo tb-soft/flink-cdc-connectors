@@ -43,15 +43,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -264,6 +262,22 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
         String selectSql = "SELECT * FROM " + fullName;
         try {
             LOG.info("Start to read snapshot from {}", fullName);
+            Connection connection = getSnapshotConnection().connection();
+            DatabaseMetaData databaseMetaData = connection.getMetaData();
+            List<String> keyName = new ArrayList<>();
+            ResultSet resultSet = databaseMetaData.getPrimaryKeys(null, databaseName, tableName);
+            while (resultSet.next()) {
+                keyName.add(resultSet.getString("COLUMN_NAME"));
+            }
+
+            if (keyName.isEmpty()) {
+                resultSet =
+                        databaseMetaData.getIndexInfo(null, databaseName, tableName, true, false);
+                while (resultSet.next()) {
+                    keyName.add(resultSet.getString("COLUMN_NAME"));
+                }
+            }
+
             getSnapshotConnection()
                     .query(
                             selectSql,
@@ -271,12 +285,17 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                                 ResultSetMetaData metaData = rs.getMetaData();
                                 while (rs.next()) {
                                     Map<String, Object> fieldMap = new HashMap<>();
+                                    Map<String, Object> key = new HashMap<>();
                                     for (int i = 0; i < metaData.getColumnCount(); i++) {
-                                        fieldMap.put(
-                                                metaData.getColumnName(i + 1), rs.getObject(i + 1));
+                                        String columnName = metaData.getColumnName(i + 1);
+                                        Object columnValue = rs.getObject(i + 1);
+                                        if (keyName.contains(columnName)) {
+                                            key.put(columnName, columnValue);
+                                        }
+                                        fieldMap.put(columnName, columnValue);
                                     }
                                     OceanBaseRecord record =
-                                            new OceanBaseRecord(sourceInfo, fieldMap);
+                                            new OceanBaseRecord(sourceInfo, fieldMap, key);
                                     try {
                                         deserializer.deserialize(record, outputCollector);
                                     } catch (Exception e) {
@@ -380,7 +399,8 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                         databaseName,
                         message.getTableName(),
                         getCheckpointTimestamp(message));
-        return new OceanBaseRecord(sourceInfo, message.getOpt(), message.getFieldList());
+        return new OceanBaseRecord(
+                sourceInfo, message.getOpt(), message.getFieldList(), message.getPrimaryKeysList());
     }
 
     /**

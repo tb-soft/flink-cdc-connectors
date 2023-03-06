@@ -35,28 +35,38 @@ public class OceanBaseRecord implements Serializable {
     private Map<String, ByteString> logMessageFieldsBefore;
     private Map<String, ByteString> logMessageFieldsAfter;
 
-    public OceanBaseRecord(SourceInfo sourceInfo, Map<String, Object> jdbcFields) {
+    private Map<String, Object> key;
+
+    public OceanBaseRecord(
+            SourceInfo sourceInfo, Map<String, Object> jdbcFields, Map<String, Object> key) {
         this.sourceInfo = sourceInfo;
         this.isSnapshotRecord = true;
         this.jdbcFields = jdbcFields;
+        this.key = key;
     }
 
     public OceanBaseRecord(
             SourceInfo sourceInfo,
             DataMessage.Record.Type opt,
-            List<DataMessage.Record.Field> logMessageFieldList) {
+            List<DataMessage.Record.Field> logMessageFieldList,
+            List<String> keyNames) {
         this.sourceInfo = sourceInfo;
         this.isSnapshotRecord = false;
         this.opt = opt;
         this.logMessageFieldsBefore = new HashMap<>();
         this.logMessageFieldsAfter = new HashMap<>();
+        this.key = new HashMap<>();
         for (DataMessage.Record.Field field : logMessageFieldList) {
+            if (keyNames.contains(field.getFieldname())) {
+                key.put(field.getFieldname(), field.getValue());
+            }
             if (field.isPrev()) {
                 logMessageFieldsBefore.put(field.getFieldname(), field.getValue());
             } else {
                 logMessageFieldsAfter.put(field.getFieldname(), field.getValue());
             }
         }
+        this.key = key;
     }
 
     public SourceInfo getSourceInfo() {
