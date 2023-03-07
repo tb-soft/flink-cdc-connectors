@@ -65,9 +65,6 @@ public class OceanBaseRecord implements Serializable {
         this.key = new HashMap<>();
         int i = 0;
         for (DataMessage.Record.Field field : logMessageFieldList) {
-            if (keyNames.contains(field.getFieldname())) {
-                key.put(field.getFieldname(), field.getValue());
-            }
             if (field.isPrev()) {
                 logMessageFieldsBefore.put(field.getFieldname(), field.getValue());
             } else {
@@ -78,6 +75,9 @@ public class OceanBaseRecord implements Serializable {
                 continue;
             }
             jdbcTypes[i++] = OceanBaseJdbcConverter.getType(field.getType());
+            if (keyNames.contains(field.getFieldname())) {
+                key.put(field.getFieldname(), field.getValue());
+            }
         }
     }
 
