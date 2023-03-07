@@ -49,7 +49,13 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -265,15 +271,18 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
             Connection connection = getSnapshotConnection().connection();
             DatabaseMetaData databaseMetaData = connection.getMetaData();
             List<String> keyName = new ArrayList<>();
-            ResultSet resultSet = databaseMetaData.getPrimaryKeys(null, databaseName, tableName);
+            ResultSet resultSet =
+                    databaseMetaData.getIndexInfo(null, databaseName, tableName, true, false);
+            String indexName = null;
             while (resultSet.next()) {
-                keyName.add(resultSet.getString("COLUMN_NAME"));
-            }
-
-            if (keyName.isEmpty()) {
-                resultSet =
-                        databaseMetaData.getIndexInfo(null, databaseName, tableName, true, false);
-                while (resultSet.next()) {
+                String currentIndexName = resultSet.getString("INDEX_NAME");
+                if (StringUtils.isEmpty(currentIndexName)) {
+                    continue;
+                }
+                if (StringUtils.isEmpty(indexName)) {
+                    indexName = currentIndexName;
+                }
+                if (indexName.equals(currentIndexName)) {
                     keyName.add(resultSet.getString("COLUMN_NAME"));
                 }
             }
@@ -283,6 +292,13 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                             selectSql,
                             rs -> {
                                 ResultSetMetaData metaData = rs.getMetaData();
+                                int[] jdbcTypes = new int[metaData.getColumnCount()];
+                                for (int i = 0; i < metaData.getColumnCount(); i++) {
+                                    jdbcTypes[i] =
+                                            OceanBaseJdbcConverter.getType(
+                                                    metaData.getColumnType(i + 1),
+                                                    metaData.getColumnTypeName(i + 1));
+                                }
                                 while (rs.next()) {
                                     Map<String, Object> fieldMap = new HashMap<>();
                                     Map<String, Object> key = new HashMap<>();
@@ -295,7 +311,8 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                                         fieldMap.put(columnName, columnValue);
                                     }
                                     OceanBaseRecord record =
-                                            new OceanBaseRecord(sourceInfo, fieldMap, key);
+                                            new OceanBaseRecord(
+                                                    sourceInfo, fieldMap, key, jdbcTypes);
                                     try {
                                         deserializer.deserialize(record, outputCollector);
                                     } catch (Exception e) {

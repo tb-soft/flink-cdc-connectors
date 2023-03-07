@@ -18,6 +18,7 @@ package com.ververica.cdc.connectors.oceanbase.table;
 
 import com.oceanbase.oms.logmessage.ByteString;
 import com.oceanbase.oms.logmessage.DataMessage;
+import com.ververica.cdc.connectors.oceanbase.source.OceanBaseJdbcConverter;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -37,12 +38,18 @@ public class OceanBaseRecord implements Serializable {
 
     private Map<String, Object> key;
 
+    private int[] jdbcTypes;
+
     public OceanBaseRecord(
-            SourceInfo sourceInfo, Map<String, Object> jdbcFields, Map<String, Object> key) {
+            SourceInfo sourceInfo,
+            Map<String, Object> jdbcFields,
+            Map<String, Object> key,
+            int[] jdbcTypes) {
         this.sourceInfo = sourceInfo;
         this.isSnapshotRecord = true;
         this.jdbcFields = jdbcFields;
         this.key = key;
+        this.jdbcTypes = jdbcTypes;
     }
 
     public OceanBaseRecord(
@@ -56,6 +63,7 @@ public class OceanBaseRecord implements Serializable {
         this.logMessageFieldsBefore = new HashMap<>();
         this.logMessageFieldsAfter = new HashMap<>();
         this.key = new HashMap<>();
+        int i = 0;
         for (DataMessage.Record.Field field : logMessageFieldList) {
             if (keyNames.contains(field.getFieldname())) {
                 key.put(field.getFieldname(), field.getValue());
@@ -65,8 +73,12 @@ public class OceanBaseRecord implements Serializable {
             } else {
                 logMessageFieldsAfter.put(field.getFieldname(), field.getValue());
             }
+
+            if (opt == DataMessage.Record.Type.UPDATE && field.isPrev()) {
+                continue;
+            }
+            jdbcTypes[i++] = OceanBaseJdbcConverter.getType(field.getType());
         }
-        this.key = key;
     }
 
     public SourceInfo getSourceInfo() {
@@ -91,6 +103,14 @@ public class OceanBaseRecord implements Serializable {
 
     public Map<String, ByteString> getLogMessageFieldsAfter() {
         return logMessageFieldsAfter;
+    }
+
+    public Map<String, Object> getKey() {
+        return key;
+    }
+
+    public int[] getJdbcTypes() {
+        return jdbcTypes;
     }
 
     /** Information about the source of record. */
