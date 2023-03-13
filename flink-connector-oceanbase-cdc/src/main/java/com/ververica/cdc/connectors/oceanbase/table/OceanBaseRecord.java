@@ -21,7 +21,7 @@ import com.oceanbase.oms.logmessage.DataMessage;
 import com.ververica.cdc.connectors.oceanbase.source.OceanBaseJdbcConverter;
 
 import java.io.Serializable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,9 +36,9 @@ public class OceanBaseRecord implements Serializable {
     private Map<String, ByteString> logMessageFieldsBefore;
     private Map<String, ByteString> logMessageFieldsAfter;
 
-    private Map<String, Object> key;
+    private final Map<String, Object> key;
 
-    private int[] jdbcTypes;
+    private final int[] jdbcTypes;
 
     public OceanBaseRecord(
             SourceInfo sourceInfo,
@@ -60,10 +60,11 @@ public class OceanBaseRecord implements Serializable {
         this.sourceInfo = sourceInfo;
         this.isSnapshotRecord = false;
         this.opt = opt;
-        this.logMessageFieldsBefore = new HashMap<>();
-        this.logMessageFieldsAfter = new HashMap<>();
-        this.key = new HashMap<>();
+        this.logMessageFieldsBefore = new LinkedHashMap<>();
+        this.logMessageFieldsAfter = new LinkedHashMap<>();
+        this.key = new LinkedHashMap<>();
         int i = 0;
+        jdbcTypes = new int[logMessageFieldList.size()];
         for (DataMessage.Record.Field field : logMessageFieldList) {
             if (field.isPrev()) {
                 logMessageFieldsBefore.put(field.getFieldname(), field.getValue());

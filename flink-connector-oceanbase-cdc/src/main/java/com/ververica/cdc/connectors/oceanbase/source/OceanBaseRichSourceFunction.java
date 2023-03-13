@@ -50,8 +50,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -300,8 +300,8 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                                                     metaData.getColumnTypeName(i + 1));
                                 }
                                 while (rs.next()) {
-                                    Map<String, Object> fieldMap = new HashMap<>();
-                                    Map<String, Object> key = new HashMap<>();
+                                    Map<String, Object> fieldMap = new LinkedHashMap<>();
+                                    Map<String, Object> key = new LinkedHashMap<>();
                                     for (int i = 0; i < metaData.getColumnCount(); i++) {
                                         String columnName = metaData.getColumnName(i + 1);
                                         Object columnValue = rs.getObject(i + 1);
