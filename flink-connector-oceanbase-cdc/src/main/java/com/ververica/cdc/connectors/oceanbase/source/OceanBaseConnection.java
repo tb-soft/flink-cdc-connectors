@@ -25,8 +25,8 @@ import java.time.Duration;
 public class OceanBaseConnection extends JdbcConnection {
 
     protected static final String URL_PATTERN =
-            "jdbc:mysql://${hostname}:${port}/?useInformationSchema=true&nullCatalogMeansCurrent=false&useSSL=false&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8&zeroDateTimeBehavior=convertToNull&connectTimeout=${connectTimeout}";
-    protected static final String DRIVER_CLASS_NAME = "com.mysql.jdbc.Driver";
+            "jdbc:oceanbase://${hostname}:${port}/?useInformationSchema=true&nullCatalogMeansCurrent=false&useSSL=false&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8&zeroDateTimeBehavior=convertToNull&connectTimeout=${connectTimeout}";
+    protected static final String DRIVER_CLASS_NAME = "com.alipay.oceanbase.jdbc.Driver";
 
     public OceanBaseConnection(
             String hostname,

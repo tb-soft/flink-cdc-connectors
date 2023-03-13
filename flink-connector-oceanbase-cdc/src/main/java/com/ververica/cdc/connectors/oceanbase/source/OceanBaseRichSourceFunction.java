@@ -264,7 +264,7 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                 new OceanBaseRecord.SourceInfo(
                         tenantName, databaseName, tableName, resolvedTimestamp);
 
-        String fullName = String.format("`%s`.`%s`", databaseName, tableName);
+        String fullName = String.format("%s.%s", databaseName, tableName);
         String selectSql = "SELECT * FROM " + fullName;
         try {
             LOG.info("Start to read snapshot from {}", fullName);
