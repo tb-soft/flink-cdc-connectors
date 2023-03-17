@@ -265,7 +265,7 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                         tenantName, databaseName, tableName, resolvedTimestamp);
 
         String fullName = String.format("%s.%s", databaseName, tableName);
-        String selectSql = "SELECT * FROM " + fullName;
+        String selectSql = "/*+ QUERY_TIMEOUT(120000000)*/ SELECT * FROM " + fullName;
         try {
             LOG.info("Start to read snapshot from {}", fullName);
             Connection connection = getSnapshotConnection().connection();
@@ -275,6 +275,9 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                     databaseMetaData.getIndexInfo(null, databaseName, tableName, true, false);
             String indexName = null;
             while (resultSet.next()) {
+                if (!databaseName.equals(resultSet.getString("TABLE_SCHEM"))) {
+                    continue;
+                }
                 String currentIndexName = resultSet.getString("INDEX_NAME");
                 if (StringUtils.isEmpty(currentIndexName)) {
                     continue;
@@ -287,6 +290,7 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                 }
             }
 
+            getSnapshotConnection().execute("set @@ob_query_timeout = 120000000");
             getSnapshotConnection()
                     .query(
                             selectSql,
