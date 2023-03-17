@@ -275,7 +275,8 @@ public class OceanBaseRichSourceFunction<T> extends RichSourceFunction<T>
                     databaseMetaData.getIndexInfo(null, databaseName, tableName, true, false);
             String indexName = null;
             while (resultSet.next()) {
-                if (!databaseName.equals(resultSet.getString("TABLE_SCHEM"))) {
+                if (!databaseName.equals(resultSet.getString("TABLE_SCHEM"))
+                        && !databaseName.equals(resultSet.getString("TABLE_CAT"))) {
                     continue;
                 }
                 String currentIndexName = resultSet.getString("INDEX_NAME");
